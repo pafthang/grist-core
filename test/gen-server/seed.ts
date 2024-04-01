@@ -8,7 +8,7 @@
  *   TYPEORM_DATABASE=/tmp/test.db
  * To connect to a postgres database, change ormconfig.env, or add a bunch of variables:
  *   export TYPEORM_CONNECTION=postgres
- *   export TYPEORM_HOST=localhost
+ *   export TYPEORM_HOST=0.0.0.0
  *   export TYPEORM_DATABASE=landing
  *   export TYPEORM_USERNAME=development
  *   export TYPEORM_PASSWORD=*****
@@ -22,244 +22,252 @@
  *
  */
 
-import {addPath} from 'app-module-path';
-import {Context} from 'mocha';
-import * as path from 'path';
-import {Connection, getConnectionManager, Repository} from 'typeorm';
+import { addPath } from "app-module-path";
+import { Context } from "mocha";
+import * as path from "path";
+import { Connection, getConnectionManager, Repository } from "typeorm";
 
 if (require.main === module) {
   addPath(path.dirname(path.dirname(__dirname)));
 }
 
-import {AclRuleDoc, AclRuleOrg, AclRuleWs} from "app/gen-server/entity/AclRule";
-import {BillingAccount} from "app/gen-server/entity/BillingAccount";
-import {Document} from "app/gen-server/entity/Document";
-import {Group} from "app/gen-server/entity/Group";
-import {Login} from "app/gen-server/entity/Login";
-import {Organization} from "app/gen-server/entity/Organization";
-import {Product, PRODUCTS, synchronizeProducts, testDailyApiLimitFeatures} from "app/gen-server/entity/Product";
-import {User} from "app/gen-server/entity/User";
-import {Workspace} from "app/gen-server/entity/Workspace";
-import {EXAMPLE_WORKSPACE_NAME} from 'app/gen-server/lib/HomeDBManager';
-import {Permissions} from 'app/gen-server/lib/Permissions';
-import {getOrCreateConnection, runMigrations, undoLastMigration, updateDb} from 'app/server/lib/dbUtils';
-import {FlexServer} from 'app/server/lib/FlexServer';
-import * as fse from 'fs-extra';
+import {
+  AclRuleDoc,
+  AclRuleOrg,
+  AclRuleWs,
+} from "app/gen-server/entity/AclRule";
+import { BillingAccount } from "app/gen-server/entity/BillingAccount";
+import { Document } from "app/gen-server/entity/Document";
+import { Group } from "app/gen-server/entity/Group";
+import { Login } from "app/gen-server/entity/Login";
+import { Organization } from "app/gen-server/entity/Organization";
+import {
+  Product,
+  PRODUCTS,
+  synchronizeProducts,
+  testDailyApiLimitFeatures,
+} from "app/gen-server/entity/Product";
+import { User } from "app/gen-server/entity/User";
+import { Workspace } from "app/gen-server/entity/Workspace";
+import { EXAMPLE_WORKSPACE_NAME } from "app/gen-server/lib/HomeDBManager";
+import { Permissions } from "app/gen-server/lib/Permissions";
+import {
+  getOrCreateConnection,
+  runMigrations,
+  undoLastMigration,
+  updateDb,
+} from "app/server/lib/dbUtils";
+import { FlexServer } from "app/server/lib/FlexServer";
+import * as fse from "fs-extra";
 
-const ACCESS_GROUPS = ['owners', 'editors', 'viewers', 'guests', 'members'];
+const ACCESS_GROUPS = ["owners", "editors", "viewers", "guests", "members"];
 
 const testProducts = [
   ...PRODUCTS,
-    {
-    name: 'testDailyApiLimit',
+  {
+    name: "testDailyApiLimit",
     features: testDailyApiLimitFeatures,
   },
 ];
 
 export const exampleOrgs = [
   {
-    name: 'NASA',
-    domain: 'nasa',
+    name: "NASA",
+    domain: "nasa",
     workspaces: [
       {
-        name: 'Horizon',
-        docs: ['Jupiter', 'Pluto', 'Beyond']
+        name: "Horizon",
+        docs: ["Jupiter", "Pluto", "Beyond"],
       },
       {
-        name: 'Rovers',
-        docs: ['Curiosity', 'Apathy']
-      }
-    ]
+        name: "Rovers",
+        docs: ["Curiosity", "Apathy"],
+      },
+    ],
   },
   {
-    name: 'Primately',
-    domain: 'pr',
+    name: "Primately",
+    domain: "pr",
     workspaces: [
       {
-        name: 'Fruit',
-        docs: ['Bananas', 'Apples']
+        name: "Fruit",
+        docs: ["Bananas", "Apples"],
       },
       {
-        name: 'Trees',
-        docs: ['Tall', 'Short']
-      }
-    ]
+        name: "Trees",
+        docs: ["Tall", "Short"],
+      },
+    ],
   },
   {
-    name: 'Flightless',
-    domain: 'fly',
+    name: "Flightless",
+    domain: "fly",
     workspaces: [
       {
-        name: 'Media',
-        docs: ['Australia', 'Antartic']
-      }
-    ]
+        name: "Media",
+        docs: ["Australia", "Antartic"],
+      },
+    ],
   },
   {
-    name: 'Abyss',
-    domain: 'deep',
+    name: "Abyss",
+    domain: "deep",
     workspaces: [
       {
-        name: 'Deep',
-        docs: ['Unfathomable']
-      }
-    ]
+        name: "Deep",
+        docs: ["Unfathomable"],
+      },
+    ],
   },
   {
-    name: 'Charonland',
+    name: "Charonland",
     workspaces: [
       {
-        name: 'Home',
-        docs: []
-      }
+        name: "Home",
+        docs: [],
+      },
     ],
     // Some tests check behavior on new free personal plans.
-    product: 'personalFree',
+    product: "personalFree",
   },
   {
-    name: 'Chimpyland',
+    name: "Chimpyland",
     workspaces: [
       {
-        name: 'Private',
-        docs: ['Timesheets', 'Appointments']
+        name: "Private",
+        docs: ["Timesheets", "Appointments"],
       },
       {
-        name: 'Public',
-        docs: []
-      }
-    ]
+        name: "Public",
+        docs: [],
+      },
+    ],
   },
   {
-    name: 'Kiwiland',
-    workspaces: []
+    name: "Kiwiland",
+    workspaces: [],
   },
   {
-    name: 'Hamland',
+    name: "Hamland",
     workspaces: [
       {
-        name: 'Home',
-        docs: []
+        name: "Home",
+        docs: [],
       },
     ],
     // Some tests check behavior on legacy free personal plans.
-    product: 'starter',
+    product: "starter",
   },
   {
-    name: 'EmptyWsOrg',
-    domain: 'blanky',
+    name: "EmptyWsOrg",
+    domain: "blanky",
     workspaces: [
       {
-        name: 'Vacuum',
-        docs: []
-      }
-    ]
+        name: "Vacuum",
+        docs: [],
+      },
+    ],
   },
   {
-    name: 'EmptyOrg',
-    domain: 'blankiest',
-    workspaces: []
+    name: "EmptyOrg",
+    domain: "blankiest",
+    workspaces: [],
   },
   {
-    name: 'Fish',
-    domain: 'fish',
+    name: "Fish",
+    domain: "fish",
     workspaces: [
       {
-        name: 'Big',
-        docs: [
-          'Shark'
-        ]
+        name: "Big",
+        docs: ["Shark"],
       },
       {
-        name: 'Small',
-        docs: [
-          'Anchovy',
-          'Herring'
-        ]
-      }
-    ]
+        name: "Small",
+        docs: ["Anchovy", "Herring"],
+      },
+    ],
   },
   {
-    name: 'Supportland',
+    name: "Supportland",
     workspaces: [
       {
         name: EXAMPLE_WORKSPACE_NAME,
-        docs: ['Hello World', 'Sample Example']
+        docs: ["Hello World", "Sample Example"],
       },
-    ]
+    ],
   },
   {
-    name: 'Shiny',
-    domain: 'shiny',
-    host: 'www.shiny-grist.io',
+    name: "Shiny",
+    domain: "shiny",
+    host: "www.shiny-grist.io",
     workspaces: [
       {
-        name: 'Tailor Made',
-        docs: ['Suits', 'Shoes']
-      }
-    ]
+        name: "Tailor Made",
+        docs: ["Suits", "Shoes"],
+      },
+    ],
   },
   {
-    name: 'FreeTeam',
-    domain: 'freeteam',
-    product: 'teamFree',
+    name: "FreeTeam",
+    domain: "freeteam",
+    product: "teamFree",
     workspaces: [
       {
-        name: 'FreeTeamWs',
+        name: "FreeTeamWs",
         docs: [],
-      }
-    ]
+      },
+    ],
   },
   {
-    name: 'TestDailyApiLimit',
-    domain: 'testdailyapilimit',
-    product: 'testDailyApiLimit',
+    name: "TestDailyApiLimit",
+    domain: "testdailyapilimit",
+    product: "testDailyApiLimit",
     workspaces: [
       {
-        name: 'TestDailyApiLimitWs',
+        name: "TestDailyApiLimitWs",
         docs: [],
-      }
-    ]
+      },
+    ],
   },
 ];
 
-
-const exampleUsers: {[user: string]: {[org: string]: string}} = {
+const exampleUsers: { [user: string]: { [org: string]: string } } = {
   Chimpy: {
-    TestDailyApiLimit: 'owners',
-    FreeTeam: 'owners',
-    Chimpyland: 'owners',
-    NASA: 'owners',
-    Primately: 'guests',
-    Fruit: 'viewers',
-    Flightless: 'guests',
-    Media: 'guests',
-    Antartic: 'viewers',
-    EmptyOrg: 'editors',
-    EmptyWsOrg: 'editors',
-    Fish: 'owners'
+    TestDailyApiLimit: "owners",
+    FreeTeam: "owners",
+    Chimpyland: "owners",
+    NASA: "owners",
+    Primately: "guests",
+    Fruit: "viewers",
+    Flightless: "guests",
+    Media: "guests",
+    Antartic: "viewers",
+    EmptyOrg: "editors",
+    EmptyWsOrg: "editors",
+    Fish: "owners",
   },
   Kiwi: {
-    Kiwiland: 'owners',
-    Flightless: 'editors',
-    Primately: 'viewers',
-    Fish: 'editors'
+    Kiwiland: "owners",
+    Flightless: "editors",
+    Primately: "viewers",
+    Fish: "editors",
   },
   Charon: {
-    Charonland: 'owners',
-    NASA: 'guests',
-    Horizon: 'guests',
-    Pluto: 'viewers',
-    Chimpyland: 'viewers',
-    Fish: 'viewers',
-    Abyss: 'owners',
+    Charonland: "owners",
+    NASA: "guests",
+    Horizon: "guests",
+    Pluto: "viewers",
+    Chimpyland: "viewers",
+    Fish: "viewers",
+    Abyss: "owners",
   },
   // User Ham has two-factor authentication enabled on staging/prod.
   Ham: {
-    Hamland: 'owners',
+    Hamland: "owners",
   },
   // User support@ owns a workspace "Examples & Templates" in its personal org. It can be shared
   // with everyone@ to let all users see it (this is not done here to avoid impacting all tests).
-  Support: { Supportland: 'owners' },
+  Support: { Supportland: "owners" },
 };
 
 interface Groups {
@@ -273,7 +281,7 @@ interface Groups {
 class Seed {
   public userRepository: Repository<User>;
   public groupRepository: Repository<Group>;
-  public groups: {[key: string]: Groups};
+  public groups: { [key: string]: Groups };
 
   constructor(public connection: Connection) {
     this.userRepository = connection.getRepository(User);
@@ -281,15 +289,17 @@ class Seed {
     this.groups = {};
   }
 
-  public async createGroups(parent?: Organization|Workspace): Promise<Groups> {
+  public async createGroups(
+    parent?: Organization | Workspace
+  ): Promise<Groups> {
     const owners = new Group();
-    owners.name = 'owners';
+    owners.name = "owners";
     const editors = new Group();
-    editors.name = 'editors';
+    editors.name = "editors";
     const viewers = new Group();
-    viewers.name = 'viewers';
+    viewers.name = "viewers";
     const guests = new Group();
-    guests.name = 'guests';
+    guests.name = "guests";
 
     if (parent) {
       // Nest the parent groups inside the new groups
@@ -304,21 +314,21 @@ class Seed {
     if (!parent) {
       // Add the members group for orgs.
       const members = new Group();
-      members.name = 'members';
+      members.name = "members";
       await this.groupRepository.save(members);
       return {
         owners,
         editors,
         viewers,
         guests,
-        members
+        members,
       };
     } else {
       return {
         owners,
         editors,
         viewers,
-        guests
+        guests,
       };
     }
   }
@@ -413,25 +423,37 @@ class Seed {
   }
 
   public async addUserToGroup(user: User, group: Group) {
-    await this.connection.createQueryBuilder()
+    await this.connection
+      .createQueryBuilder()
       .relation(Group, "memberUsers")
       .of(group)
       .add(user);
   }
 
-  public async addDocs(orgs: Array<{name: string, domain?: string, host?: string, product?: string,
-                                    workspaces: Array<{name: string, docs: string[]}>}>) {
+  public async addDocs(
+    orgs: Array<{
+      name: string;
+      domain?: string;
+      host?: string;
+      product?: string;
+      workspaces: Array<{ name: string; docs: string[] }>;
+    }>
+  ) {
     let docId = 1;
     for (const org of orgs) {
       const o = new Organization();
       o.name = org.name;
       const ba = new BillingAccount();
       ba.individual = false;
-      const productName = org.product || 'Free';
-      ba.product = (await Product.findOne({where: {name: productName}}))!;
+      const productName = org.product || "Free";
+      ba.product = (await Product.findOne({ where: { name: productName } }))!;
       o.billingAccount = ba;
-      if (org.domain) { o.domain = org.domain; }
-      if (org.host) { o.host = org.host; }
+      if (org.domain) {
+        o.domain = org.domain;
+      }
+      if (org.host) {
+        o.host = org.host;
+      }
       await ba.save();
       await o.save();
       const grps = await this.createGroups();
@@ -461,7 +483,7 @@ class Seed {
   }
 
   public async run() {
-    if (await this.userRepository.findOne({where: {}})) {
+    if (await this.userRepository.findOne({ where: {} })) {
       // we already have a user - skip seeding database
       return;
     }
@@ -472,7 +494,7 @@ class Seed {
 
   // Creates benchmark data with 10 orgs, 50 workspaces per org and 20 docs per workspace.
   public async runBenchmark() {
-    if (await this.userRepository.findOne({where: {}})) {
+    if (await this.userRepository.findOne({ where: {} })) {
       // we already have a user - skip seeding database
       return;
     }
@@ -481,7 +503,7 @@ class Seed {
 
     const benchmarkOrgs = _generateData(100, 50, 20);
     // Create an access object giving Chimpy random access to the orgs.
-    const chimpyAccess: {[name: string]: string} = {};
+    const chimpyAccess: { [name: string]: string } = {};
     benchmarkOrgs.forEach((_org: any) => {
       const zeroToThree = Math.floor(Math.random() * 4);
       chimpyAccess[_org.name] = ACCESS_GROUPS[zeroToThree];
@@ -491,7 +513,9 @@ class Seed {
     await this._buildUsers({ Chimpy: chimpyAccess });
   }
 
-  private async _buildUsers(userAccessMap: {[user: string]: {[org: string]: string}}) {
+  private async _buildUsers(userAccessMap: {
+    [user: string]: { [org: string]: string };
+  }) {
     for (const name of Object.keys(userAccessMap)) {
       const user = new User();
       user.name = name;
@@ -501,13 +525,18 @@ class Seed {
       login.displayEmail = login.email = name.toLowerCase() + "@getgrist.com";
       login.user = user;
       await login.save();
-      const personal = await Organization.findOne({where: {name: name + "land"}});
+      const personal = await Organization.findOne({
+        where: { name: name + "land" },
+      });
       if (personal) {
         personal.owner = user;
         await personal.save();
       }
       for (const org of Object.keys(userAccessMap[name])) {
-        await this.addUserToGroup(user, (this.groups[org] as any)[userAccessMap[name][org]]);
+        await this.addUserToGroup(
+          user,
+          (this.groups[org] as any)[userAccessMap[name][org]]
+        );
       }
     }
   }
@@ -526,7 +555,10 @@ export async function removeConnection() {
   }
 }
 
-export async function createInitialDb(connection?: Connection, migrateAndSeedData: boolean = true) {
+export async function createInitialDb(
+  connection?: Connection,
+  migrateAndSeedData: boolean = true
+) {
   // In jenkins tests, we may want to reset the database to a clean
   // state.  If so, TEST_CLEAN_DATABASE will have been set.  How to
   // clean the database depends on what kind of database it is.  With
@@ -535,15 +567,15 @@ export async function createInitialDb(connection?: Connection, migrateAndSeedDat
   // are only allowed to do this if there is no connection open to it
   // (so we fail if a connection has already been made).  If the
   // sqlite db is in memory (":memory:") there's nothing to delete.
-  const uncommitted = !connection;  // has user already created a connection?
-                                    // if so we won't be able to delete sqlite db
-  connection = connection || await getOrCreateConnection();
+  const uncommitted = !connection; // has user already created a connection?
+  // if so we won't be able to delete sqlite db
+  connection = connection || (await getOrCreateConnection());
   const opt = connection.driver.options;
   if (process.env.TEST_CLEAN_DATABASE) {
-    if (opt.type === 'sqlite') {
+    if (opt.type === "sqlite") {
       const database = (opt as any).database;
       // Only dbs on disk need to be deleted
-      if (database !== ':memory:') {
+      if (database !== ":memory:") {
         // We can only delete on-file dbs if no connection is open to them
         if (!uncommitted) {
           throw Error("too late to clean sqlite db");
@@ -554,7 +586,7 @@ export async function createInitialDb(connection?: Connection, migrateAndSeedDat
         }
         connection = await getOrCreateConnection();
       }
-    } else if (opt.type === 'postgres') {
+    } else if (opt.type === "postgres") {
       // recreate schema, destroying everything that was inside it
       await connection.query("DROP SCHEMA public CASCADE;");
       await connection.query("CREATE SCHEMA public;");
@@ -573,22 +605,25 @@ export async function createInitialDb(connection?: Connection, migrateAndSeedDat
 // add some test data to the database.
 export async function addSeedData(connection: Connection) {
   await synchronizeProducts(connection, true, testProducts);
-  await connection.transaction(async tr => {
+  await connection.transaction(async (tr) => {
     const seed = new Seed(tr.connection);
     await seed.run();
   });
 }
 
 export async function createBenchmarkDb(connection?: Connection) {
-  connection = connection || await getOrCreateConnection();
+  connection = connection || (await getOrCreateConnection());
   await updateDb(connection);
-  await connection.transaction(async tr => {
+  await connection.transaction(async (tr) => {
     const seed = new Seed(tr.connection);
     await seed.runBenchmark();
   });
 }
 
-export async function createServer(port: number, initDb = createInitialDb): Promise<FlexServer> {
+export async function createServer(
+  port: number,
+  initDb = createInitialDb
+): Promise<FlexServer> {
   const flexServer = new FlexServer(port);
   flexServer.addJsonSupport();
   await flexServer.start();
@@ -611,9 +646,13 @@ export async function createBenchmarkServer(port: number): Promise<FlexServer> {
 
 // Generates a random dataset of orgs, workspaces and docs. The number of workspaces
 // given is per org, and the number of docs given is per workspace.
-function _generateData(numOrgs: number, numWorkspaces: number, numDocs: number) {
+function _generateData(
+  numOrgs: number,
+  numWorkspaces: number,
+  numDocs: number
+) {
   if (numOrgs < 1 || numWorkspaces < 1 || numDocs < 0) {
-    throw new Error('_generateData error: Invalid arguments');
+    throw new Error("_generateData error: Invalid arguments");
   }
   const example = [];
   for (let i = 0; i < numOrgs; i++) {
@@ -621,19 +660,19 @@ function _generateData(numOrgs: number, numWorkspaces: number, numDocs: number) 
     for (let j = 0; j < numWorkspaces; j++) {
       const docs = [];
       for (let k = 0; k < numDocs; k++) {
-        const docIndex = (i * numWorkspaces * numDocs) + (j * numDocs) + k;
+        const docIndex = i * numWorkspaces * numDocs + j * numDocs + k;
         docs.push(`doc-${docIndex}`);
       }
-      const workspaceIndex = (i * numWorkspaces) + j;
+      const workspaceIndex = i * numWorkspaces + j;
       workspaces.push({
         name: `ws-${workspaceIndex}`,
-        docs
+        docs,
       });
     }
     example.push({
       name: `org-${i}`,
       domain: `org-${i}`,
-      workspaces
+      workspaces,
     });
   }
   return example;
@@ -647,31 +686,33 @@ export function setUpDB(context?: Context) {
   if (!process.env.TYPEORM_DATABASE) {
     process.env.TYPEORM_DATABASE = ":memory:";
   } else {
-    if (context) { context.timeout(60000); }
+    if (context) {
+      context.timeout(60000);
+    }
   }
 }
 
 async function main() {
   const cmd = process.argv[2];
-  if (cmd === 'init') {
+  if (cmd === "init") {
     await createInitialDb();
     return;
-  } else if (cmd === 'benchmark') {
+  } else if (cmd === "benchmark") {
     const connection = await getOrCreateConnection();
     await createInitialDb(connection, false);
     await createBenchmarkDb(connection);
     return;
-  } else if (cmd === 'migrate') {
-    process.env.TYPEORM_LOGGING = 'true';
+  } else if (cmd === "migrate") {
+    process.env.TYPEORM_LOGGING = "true";
     const connection = await getOrCreateConnection();
     await runMigrations(connection);
     return;
-  } else if (cmd === 'revert') {
-    process.env.TYPEORM_LOGGING = 'true';
+  } else if (cmd === "revert") {
+    process.env.TYPEORM_LOGGING = "true";
     const connection = await getOrCreateConnection();
     await undoLastMigration(connection);
     return;
-  } else if (cmd === 'serve') {
+  } else if (cmd === "serve") {
     const home = await createServer(3000);
     // tslint:disable-next-line:no-console
     console.log(`Home API demo available at ${home.getOwnUrl()}`);
@@ -682,7 +723,7 @@ async function main() {
 }
 
 if (require.main === module) {
-  main().catch(e => {
+  main().catch((e) => {
     // tslint:disable-next-line:no-console
     console.log(e);
   });

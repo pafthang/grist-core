@@ -1,50 +1,60 @@
-import * as net from 'net';
+import * as net from "net";
 
-import {UserProfile} from 'app/common/LoginSessionAPI';
-import {Deps as ActiveDocDeps} from 'app/server/lib/ActiveDoc';
-import {Deps as DiscourseConnectDeps} from 'app/server/lib/DiscourseConnect';
-import {Deps as CommClientDeps} from 'app/server/lib/Client';
-import * as Client from 'app/server/lib/Client';
-import {Comm} from 'app/server/lib/Comm';
-import log from 'app/server/lib/log';
-import {IMessage, Rpc} from 'grain-rpc';
-import {EventEmitter} from 'events';
-import {Request} from 'express';
-import * as t from 'ts-interface-checker';
-import {FlexServer} from './FlexServer';
-import {ClientJsonMemoryLimits, ITestingHooks} from './ITestingHooks';
-import ITestingHooksTI from './ITestingHooks-ti';
-import {connect, fromCallback} from './serverUtils';
-import {WidgetRepositoryImpl} from 'app/server/lib/WidgetRepository';
+import { UserProfile } from "app/common/LoginSessionAPI";
+import { Deps as ActiveDocDeps } from "app/server/lib/ActiveDoc";
+import { Deps as DiscourseConnectDeps } from "app/server/lib/DiscourseConnect";
+import { Deps as CommClientDeps } from "app/server/lib/Client";
+import * as Client from "app/server/lib/Client";
+import { Comm } from "app/server/lib/Comm";
+import log from "app/server/lib/log";
+import { IMessage, Rpc } from "grain-rpc";
+import { EventEmitter } from "events";
+import { Request } from "express";
+import * as t from "ts-interface-checker";
+import { FlexServer } from "./FlexServer";
+import { ClientJsonMemoryLimits, ITestingHooks } from "./ITestingHooks";
+import ITestingHooksTI from "./ITestingHooks-ti";
+import { connect, fromCallback } from "./serverUtils";
+import { WidgetRepositoryImpl } from "app/server/lib/WidgetRepository";
 
-const tiCheckers = t.createCheckers(ITestingHooksTI, {UserProfile: t.name("object")});
+const tiCheckers = t.createCheckers(ITestingHooksTI, {
+  UserProfile: t.name("object"),
+});
 
-export function startTestingHooks(socketPath: string, port: number,
-                                  comm: Comm, flexServer: FlexServer,
-                                  workerServers: FlexServer[]): Promise<net.Server> {
+export function startTestingHooks(
+  socketPath: string,
+  port: number,
+  comm: Comm,
+  flexServer: FlexServer,
+  workerServers: FlexServer[]
+): Promise<net.Server> {
   // Create socket server listening on the given path for testing connections.
   return new Promise((resolve, reject) => {
     const server = net.createServer();
-    server.on('error', reject);
-    server.on('listening', () => resolve(server));
-    server.on('connection', socket => {
+    server.on("error", reject);
+    server.on("listening", () => resolve(server));
+    server.on("connection", (socket) => {
       // On connection, create an Rpc object communicating over that socket.
-      const rpc = connectToSocket(new Rpc({logger: {}}), socket);
+      const rpc = connectToSocket(new Rpc({ logger: {} }), socket);
       // Register the testing implementation.
-      rpc.registerImpl('testing',
-                       new TestingHooks(port, comm, flexServer, workerServers),
-                       tiCheckers.ITestingHooks);
+      rpc.registerImpl(
+        "testing",
+        new TestingHooks(port, comm, flexServer, workerServers),
+        tiCheckers.ITestingHooks
+      );
     });
     server.listen(socketPath);
   });
 }
 
 function connectToSocket(rpc: Rpc, socket: net.Socket): Rpc {
-  socket.setEncoding('utf8');
+  socket.setEncoding("utf8");
   // Poor-man's JSON processing, only OK because this is for testing only. If multiple messages
   // are received quickly, they may arrive in the same buf, and JSON.parse will fail.
-  socket.on('data', (buf: string) => rpc.receiveMessage(JSON.parse(buf)));
-  rpc.setSendMessage((m: IMessage) => fromCallback(cb => socket.write(JSON.stringify(m), 'utf8', cb)));
+  socket.on("data", (buf: string) => rpc.receiveMessage(JSON.parse(buf)));
+  rpc.setSendMessage((m: IMessage) =>
+    fromCallback((cb) => socket.write(JSON.stringify(m), "utf8", cb))
+  );
   return rpc;
 }
 
@@ -52,12 +62,17 @@ export interface TestingHooksClient extends ITestingHooks {
   close(): void;
 }
 
-export async function connectTestingHooks(socketPath: string): Promise<TestingHooksClient> {
+export async function connectTestingHooks(
+  socketPath: string
+): Promise<TestingHooksClient> {
   const socket = await connect(socketPath);
-  const rpc = connectToSocket(new Rpc({logger: {}}), socket);
-  return Object.assign(rpc.getStub<TestingHooks>('testing', tiCheckers.ITestingHooks), {
-    close: () => socket.end(),
-  });
+  const rpc = connectToSocket(new Rpc({ logger: {} }), socket);
+  return Object.assign(
+    rpc.getStub<TestingHooks>("testing", tiCheckers.ITestingHooks),
+    {
+      close: () => socket.end(),
+    }
+  );
 }
 
 export class TestingHooks implements ITestingHooks {
@@ -78,16 +93,29 @@ export class TestingHooks implements ITestingHooks {
     return this._port;
   }
 
-  public async setLoginSessionProfile(gristSidCookie: string, profile: UserProfile|null, org?: string): Promise<void> {
-    log.info("TestingHooks.setLoginSessionProfile called with", gristSidCookie, profile, org);
+  public async setLoginSessionProfile(
+    gristSidCookie: string,
+    profile: UserProfile | null,
+    org?: string
+  ): Promise<void> {
+    log.info(
+      "TestingHooks.setLoginSessionProfile called with",
+      gristSidCookie,
+      profile,
+      org
+    );
     const sessionId = this._comm.getSessionIdFromCookie(gristSidCookie);
-    const scopedSession = this._comm.getOrCreateSession(sessionId as string, {org});
+    const scopedSession = this._comm.getOrCreateSession(sessionId as string, {
+      org,
+    });
     const req = {} as Request;
     await scopedSession.updateUserProfile(req, profile);
-    this._server.getSessions().clearCacheIfNeeded({email: profile?.email, org});
+    this._server
+      .getSessions()
+      .clearCacheIfNeeded({ email: profile?.email, org });
   }
 
-  public async setServerVersion(version: string|null): Promise<void> {
+  public async setServerVersion(version: string | null): Promise<void> {
     log.info("TestingHooks.setServerVersion called with", version);
     this._comm.setServerVersion(version);
     for (const server of this._workerServers) {
@@ -134,7 +162,9 @@ export class TestingHooks implements ITestingHooks {
   // - jsonResponseReservation sets the initial amount reserved for each response
   // - maxReservationSize monkey-patches reservation logic to fail when reservation exceeds the
   //      given amount, to simulate unexpected failures.
-  public async commSetClientJsonMemoryLimits(limits: ClientJsonMemoryLimits): Promise<ClientJsonMemoryLimits> {
+  public async commSetClientJsonMemoryLimits(
+    limits: ClientJsonMemoryLimits
+  ): Promise<ClientJsonMemoryLimits> {
     log.info("TestingHooks.commSetClientJsonMemoryLimits called with", limits);
     const previous: ClientJsonMemoryLimits = {};
     if (limits.totalSize !== undefined) {
@@ -152,15 +182,23 @@ export class TestingHooks implements ITestingHooks {
       } else {
         // Monkey-patch reservation logic to simulate unexpected failures.
         const jsonMemoryThrowLimit = limits.maxReservationSize;
-        function updateReservedWithLimit(this: typeof Client.jsonMemoryPool, sizeDelta: number) {
+        function updateReservedWithLimit(
+          this: typeof Client.jsonMemoryPool,
+          sizeDelta: number
+        ) {
           const newSize: number = (this as any)._reservedSize + sizeDelta;
-          log.warn(`TestingHooks _updateReserved reserving ${newSize}, limit ${jsonMemoryThrowLimit}`);
+          log.warn(
+            `TestingHooks _updateReserved reserving ${newSize}, limit ${jsonMemoryThrowLimit}`
+          );
           if (newSize > jsonMemoryThrowLimit) {
-            throw new Error(`TestingHooks: hit JsonMemoryThrowLimit: ${newSize} > ${jsonMemoryThrowLimit}`);
+            throw new Error(
+              `TestingHooks: hit JsonMemoryThrowLimit: ${newSize} > ${jsonMemoryThrowLimit}`
+            );
           }
           return orig.call(this, sizeDelta);
         }
-        (Client.jsonMemoryPool as any)._updateReserved = updateReservedWithLimit;
+        (Client.jsonMemoryPool as any)._updateReserved =
+          updateReservedWithLimit;
       }
     }
     return previous;
@@ -176,28 +214,36 @@ export class TestingHooks implements ITestingHooks {
     }
   }
 
-  public async setDocWorkerActivation(workerId: string, active: 'active'|'inactive'|'crash'):
-    Promise<void> {
-    log.info("TestingHooks.setDocWorkerActivation called with", workerId, active);
+  public async setDocWorkerActivation(
+    workerId: string,
+    active: "active" | "inactive" | "crash"
+  ): Promise<void> {
+    log.info(
+      "TestingHooks.setDocWorkerActivation called with",
+      workerId,
+      active
+    );
     const matches = this._workerServers.filter(
-      server => server.worker.id === workerId ||
+      (server) =>
+        server.worker.id === workerId ||
         server.worker.publicUrl === workerId ||
-        (server.worker.publicUrl.startsWith('http://localhost:') &&
-          workerId.startsWith('http://localhost:') &&
-          new URL(server.worker.publicUrl).host === new URL(workerId).host));
+        (server.worker.publicUrl.startsWith("http://0.0.0.0:") &&
+          workerId.startsWith("http://0.0.0.0:") &&
+          new URL(server.worker.publicUrl).host === new URL(workerId).host)
+    );
     if (matches.length !== 1) {
       throw new Error(`could not find worker: ${workerId}`);
     }
     const server = matches[0];
     switch (active) {
-      case 'active':
+      case "active":
         await server.restartListening();
         break;
-      case 'inactive':
+      case "inactive":
         await server.stopListening();
         break;
-      case 'crash':
-        await server.stopListening('crash');
+      case "crash":
+        await server.stopListening("crash");
         break;
     }
   }
@@ -239,7 +285,10 @@ export class TestingHooks implements ITestingHooks {
   }
 
   // Sets env vars for the DiscourseConnect module, and returns the previous value.
-  public async setDiscourseConnectVar(varName: string, value: string|null): Promise<string|null> {
+  public async setDiscourseConnectVar(
+    varName: string,
+    value: string | null
+  ): Promise<string | null> {
     const key = varName as keyof typeof DiscourseConnectDeps;
     const prev = DiscourseConnectDeps[key] || null;
     if (value == null) {
@@ -263,14 +312,24 @@ export class TestingHooks implements ITestingHooks {
   }
 
   // This is for testing the handling of unhandled exceptions and rejections.
-  public async tickleUnhandledErrors(errType: 'exception'|'rejection'|'error-event'): Promise<void> {
-    if (errType === 'exception') {
-      setTimeout(() => { throw new Error("TestingHooks: Fake exception"); }, 0);
-    } else if (errType === 'rejection') {
-      void(Promise.resolve(null).then(() => { throw new Error("TestingHooks: Fake rejection"); }));
-    } else if (errType === 'error-event') {
+  public async tickleUnhandledErrors(
+    errType: "exception" | "rejection" | "error-event"
+  ): Promise<void> {
+    if (errType === "exception") {
+      setTimeout(() => {
+        throw new Error("TestingHooks: Fake exception");
+      }, 0);
+    } else if (errType === "rejection") {
+      void Promise.resolve(null).then(() => {
+        throw new Error("TestingHooks: Fake rejection");
+      });
+    } else if (errType === "error-event") {
       const emitter = new EventEmitter();
-      setTimeout(() => emitter.emit('error', new Error('TestingHooks: Fake error-event')), 0);
+      setTimeout(
+        () =>
+          emitter.emit("error", new Error("TestingHooks: Fake error-event")),
+        0
+      );
     } else {
       throw new Error(`Unrecognized errType ${errType}`);
     }

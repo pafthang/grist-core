@@ -103,7 +103,7 @@ docker pull gristlabs/grist
 docker run -p 8484:8484 -it gristlabs/grist
 ```
 
-Then visit `http://localhost:8484` in your browser. You'll be able to create, edit, import,
+Then visit `http://0.0.0.0:8484` in your browser. You'll be able to create, edit, import,
 and export documents. To preserve your work across docker runs, share a directory as `/persist`:
 
 ```sh
@@ -155,7 +155,7 @@ To build Grist from source, follow these steps:
     yarn run build:prod
     yarn run install:python
     yarn start
-    # Grist will be available at http://localhost:8484/
+    # Grist will be available at http://0.0.0.0:8484/
 
 Grist formulas in documents will be run using Python executed directly on your
 machine. You can configure sandboxing using a `GRIST_SANDBOX_FLAVOR`

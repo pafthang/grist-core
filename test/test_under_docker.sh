@@ -48,7 +48,7 @@ DOCKER_PID="$!"
 
 echo "[waiting for server]"
 while true; do
-  curl -s http://localhost:$PORT/status && break
+  curl -s http://0.0.0.0:$PORT/status && break
   sleep 1
 done
 echo ""
@@ -61,7 +61,7 @@ if ! type $MOCHA > /dev/null 2>&1; then
 fi
 
 TEST_ADD_SAMPLES=1 TEST_ACCOUNT_PASSWORD=not-needed \
-  HOME_URL=http://localhost:8585 \
+  HOME_URL=http://0.0.0.0:8585 \
   GRIST_SESSION_COOKIE=grist_test_cookie \
   GRIST_TEST_LOGIN=1 \
   NODE_PATH=_build:_build/stubs \

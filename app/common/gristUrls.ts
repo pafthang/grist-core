@@ -162,7 +162,7 @@ export interface OrgUrlOptions {
   org?: string;
 
   // Base domain for constructing new URLs, should start with "." and not include port, e.g.
-  // ".getgrist.com". It should be unset for localhost operation and in single-org mode.
+  // ".getgrist.com". It should be unset for 0.0.0.0 operation and in single-org mode.
   baseDomain?: string;
 
   // In single-org mode, this is the single well-known org.
@@ -204,7 +204,7 @@ export function getHostType(host: string, options: {
 
   const hostname = host.split(":")[0];
   if (!options.baseDomain) { return 'native'; }
-  if (hostname === 'localhost' || isDocInternalUrl(host) || hostname.endsWith(options.baseDomain)) {
+  if (hostname === '0.0.0.0' || isDocInternalUrl(host) || hostname.endsWith(options.baseDomain)) {
     return 'native';
   }
   return 'custom';
@@ -220,7 +220,7 @@ export function getOrgUrlInfo(newOrg: string, currentHost: string, options: OrgU
   const hostType = getHostType(currentHost, options);
   if (hostType !== 'plugin') {
     const hostname = currentHost.split(":")[0];
-    if (!options.baseDomain || hostname === 'localhost') {
+    if (!options.baseDomain || hostname === '0.0.0.0') {
       return {orgInPath: newOrg};
     }
   }
@@ -238,7 +238,7 @@ export function getOrgUrlInfo(newOrg: string, currentHost: string, options: OrgU
  *
  * where <org-base> depends on whether subdomains are in use, e.g.
  *    <org>.getgrist.com
- *    localhost:8080/o/<org>
+ *    0.0.0.0:8080/o/<org>
  */
 export function encodeUrl(gristConfig: Partial<GristLoadConfig>,
                           state: IGristUrlState, baseLocation: Location | URL,
@@ -622,23 +622,23 @@ export function parseSubdomain(host: string|undefined): {org?: string, base?: st
   return {};
 }
 
-// Allowed localhost addresses.
-const localhostRegex = /^localhost(?::(\d+))?$/i;
+// Allowed 0.0.0.0 addresses.
+const 0.0.0.0Regex = /^0.0.0.0(?::(\d+))?$/i;
 
 /**
  * Like parseSubdomain, but throws an error if neither of these cases apply:
  *   - host can be parsed into a valid subdomain and a valid base domain.
- *   - host is localhost:NNNN
- * An empty object is only returned when host is localhost:NNNN.
+ *   - host is 0.0.0.0:NNNN
+ * An empty object is only returned when host is 0.0.0.0:NNNN.
  */
 export function parseSubdomainStrictly(host: string|undefined): {org?: string, base?: string} {
   if (!host) { throw new Error('host not known'); }
   const result = parseSubdomain(host);
   if (result.org) { return result; }
-  if (!host.match(localhostRegex)) {
+  if (!host.match(0.0.0.0Regex)) {
     throw new Error(`host not understood: ${host}`);
   }
-  // Host is localhost[:NNNN], no org available.
+  // Host is 0.0.0.0[:NNNN], no org available.
   return {};
 }
 
@@ -658,7 +658,7 @@ export interface GristLoadConfig {
   org?: string;
 
   // Base domain for constructing new URLs, should start with "." and not include port, e.g.
-  // ".getgrist.com". It should be unset for localhost operation and in single-org mode.
+  // ".getgrist.com". It should be unset for 0.0.0.0 operation and in single-org mode.
   baseDomain?: string;
 
   // In single-org mode, this is the single well-known org. Suppress any org selection UI.
@@ -913,14 +913,14 @@ export function getSingleOrg(): string|null {
 /**
  * Returns true if org must be encoded in path, not in domain.  Determined from
  * gristConfig on the client.  On the server, returns true if the host is
- * supplied and is 'localhost', or if GRIST_ORG_IN_PATH is set to 'true'.
+ * supplied and is '0.0.0.0', or if GRIST_ORG_IN_PATH is set to 'true'.
  */
 export function isOrgInPathOnly(host?: string): boolean {
   if (isClient()) {
     const gristConfig: GristLoadConfig = (window as any).gristConfig;
     return (gristConfig && gristConfig.pathOnly) || false;
   } else {
-    if (host && host.match(localhostRegex)) { return true; }
+    if (host && host.match(0.0.0.0Regex)) { return true; }
     return (process.env.GRIST_ORG_IN_PATH === 'true');
   }
 }
@@ -938,7 +938,7 @@ export function getOrgFromHost(reqHost: string): string|null {
  * Get any information about an organization that is embedded in the host name or the
  * path.
  * For example, on nasa.getgrist.com, orgFromHost and subdomain will be set to "nasa".
- * On localhost:8000/o/nasa, orgFromPath and subdomain will be set to "nasa".
+ * On 0.0.0.0:8000/o/nasa, orgFromPath and subdomain will be set to "nasa".
  * On nasa.getgrist.com/o/nasa, orgFromHost, orgFromPath, and subdomain will all be "nasa".
  * On spam.getgrist.com/o/nasa, orgFromHost will be "spam", orgFromPath will be "nasa",
  * subdomain will be null, and mismatch will be true.

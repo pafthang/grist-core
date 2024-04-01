@@ -1,11 +1,11 @@
-import {ApiError} from 'app/common/ApiError';
-import {parseSubdomainStrictly} from 'app/common/gristUrls';
-import {removeTrailingSlash} from 'app/common/gutil';
-import {DocStatus, IDocWorkerMap} from 'app/server/lib/DocWorkerMap';
-import log from 'app/server/lib/log';
-import {adaptServerUrl} from 'app/server/lib/requestUtils';
-import * as express from 'express';
-import fetch, {Response as FetchResponse, RequestInit} from 'node-fetch';
+import { ApiError } from "app/common/ApiError";
+import { parseSubdomainStrictly } from "app/common/gristUrls";
+import { removeTrailingSlash } from "app/common/gutil";
+import { DocStatus, IDocWorkerMap } from "app/server/lib/DocWorkerMap";
+import log from "app/server/lib/log";
+import { adaptServerUrl } from "app/server/lib/requestUtils";
+import * as express from "express";
+import fetch, { Response as FetchResponse, RequestInit } from "node-fetch";
 
 /**
  * This method transforms a doc worker's public url as needed based on the request.
@@ -14,7 +14,7 @@ import fetch, {Response as FetchResponse, RequestInit} from 'node-fetch';
  * of creation.  In production/staging, this is of the form:
  *   https://doc-worker-NNN-NNN-NNN-NNN.getgrist.com/v/VVVV/
  * and in dev:
- *   http://localhost:NNNN/v/VVVV/
+ *   http://0.0.0.0:NNNN/v/VVVV/
  *
  * Prior to support for different base domains, this was fine.  Now that different
  * base domains are supported, a wrinkle arises.  When a web client communicates
@@ -22,7 +22,7 @@ import fetch, {Response as FetchResponse, RequestInit} from 'node-fetch';
  * containing the same base domain as the web page the client is on (for cookie
  * purposes).  Hence this method.
  *
- * If both the request and docWorkerUrl contain identifiable base domains (not localhost),
+ * If both the request and docWorkerUrl contain identifiable base domains (not 0.0.0.0),
  * then the base domain of docWorkerUrl is replaced with that of the request.
  *
  * But wait, there's another wrinkle: custom domains. In this case, we have a single
@@ -36,9 +36,9 @@ import fetch, {Response as FetchResponse, RequestInit} from 'node-fetch';
  * of a fixed base domain.
  */
 export function customizeDocWorkerUrl(
-  docWorkerUrlSeed: string|undefined,
+  docWorkerUrlSeed: string | undefined,
   req: express.Request
-): string|null {
+): string | null {
   if (!docWorkerUrlSeed) {
     // When no doc worker seed, we're in single server mode.
     // Return null, to signify that the URL prefix serving the
@@ -51,8 +51,8 @@ export function customizeDocWorkerUrl(
 
   // We wish to migrate to routing doc workers by path, so insert a doc worker identifier
   // in the path (if not already present).
-  if (!docWorkerUrl.pathname.startsWith('/dw/')) {
-    // When doc worker is localhost, the port number is necessary and sufficient for routing.
+  if (!docWorkerUrl.pathname.startsWith("/dw/")) {
+    // When doc worker is 0.0.0.0, the port number is necessary and sufficient for routing.
     // Let's add a /dw/... prefix just for consistency.
     const workerIdent = workerSubdomain || `local-${docWorkerUrl.port}`;
     docWorkerUrl.pathname = `/dw/${workerIdent}${docWorkerUrl.pathname}`;
@@ -100,12 +100,13 @@ export async function getWorker(
     // of the defaults not working.
     throw new Error("AppEndpoint.getWorker was called unnecessarily");
   }
-  let docStatus: DocStatus|undefined;
+  let docStatus: DocStatus | undefined;
   const workersAreManaged = Boolean(process.env.GRIST_MANAGED_WORKERS);
   for (;;) {
     docStatus = await docWorkerMap.assignDocWorker(assignmentId);
-    const configWithTimeout = {timeout: 10000, ...config};
-    const fullUrl = removeTrailingSlash(docStatus.docWorker.internalUrl) + urlPath;
+    const configWithTimeout = { timeout: 10000, ...config };
+    const fullUrl =
+      removeTrailingSlash(docStatus.docWorker.internalUrl) + urlPath;
     try {
       const resp: FetchResponse = await fetch(fullUrl, configWithTimeout);
       if (resp.ok) {
@@ -115,7 +116,10 @@ export async function getWorker(
         };
       }
       if (resp.status === 403) {
-        throw new ApiError("You do not have access to this document.", resp.status);
+        throw new ApiError(
+          "You do not have access to this document.",
+          resp.status
+        );
       }
       if (resp.status !== 404) {
         throw new ApiError(resp.statusText, resp.status);
@@ -126,7 +130,13 @@ export async function getWorker(
       } catch (e) {
         throw new ApiError(resp.statusText, resp.status);
       }
-      if (!(body && body.message && body.message === 'document worker not present')) {
+      if (
+        !(
+          body &&
+          body.message &&
+          body.message === "document worker not present"
+        )
+      ) {
         throw new ApiError(resp.statusText, resp.status);
       }
       // This is a 404 with the expected content for a missing worker.
@@ -142,7 +152,7 @@ export async function getWorker(
       // Otherwise, we continue if we see a system error (e.g. ECONNREFUSED).
       // We don't accept timeouts since there is too much potential to
       // bring down a single-worker deployment that has a hiccup.
-      if (workersAreManaged || !(e.type === 'system')) {
+      if (workersAreManaged || !(e.type === "system")) {
         throw e;
       }
     }
@@ -154,5 +164,5 @@ export async function getWorker(
 
 // Return true if document related endpoints are served by separate workers.
 export function useWorkerPool() {
-  return process.env.GRIST_SINGLE_PORT !== 'true';
+  return process.env.GRIST_SINGLE_PORT !== "true";
 }

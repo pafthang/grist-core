@@ -1,10 +1,10 @@
-import { DocAction } from 'app/common/DocActions';
-import { DocData } from 'app/common/DocData';
-import { SchemaTypes } from 'app/common/schema';
-import { FlexServer } from 'app/server/lib/FlexServer';
-import axios from 'axios';
-import pick = require('lodash/pick');
-import {GristClientSocket} from 'app/client/components/GristClientSocket';
+import { DocAction } from "app/common/DocActions";
+import { DocData } from "app/common/DocData";
+import { SchemaTypes } from "app/common/schema";
+import { FlexServer } from "app/server/lib/FlexServer";
+import axios from "axios";
+import pick = require("lodash/pick");
+import { GristClientSocket } from "app/client/components/GristClientSocket";
 
 interface GristRequest {
   reqId: number;
@@ -20,7 +20,7 @@ interface GristResponse {
 }
 
 interface GristMessage {
-  type: 'clientConnect' | 'docUserAction';
+  type: "clientConnect" | "docUserAction";
   docFD: number;
   data: any;
 }
@@ -29,33 +29,44 @@ export class GristClient {
   public messages: GristMessage[] = [];
 
   private _requestId: number = 0;
-  private _pending: Array<GristResponse|GristMessage> = [];
-  private _docData?: DocData;  // accumulate tabular info like a real client.
+  private _pending: Array<GristResponse | GristMessage> = [];
+  private _docData?: DocData; // accumulate tabular info like a real client.
   private _consumer: () => void;
   private _ignoreTrivialActions: boolean = false;
 
   constructor(public ws: GristClientSocket) {
     ws.onmessage = (data: string) => {
-      const msg = pick(JSON.parse(data),
-                       ['reqId', 'error', 'errorCode', 'data', 'type', 'docFD']);
-      if (this._ignoreTrivialActions && msg.type === 'docUserAction' &&
-          msg.data?.actionGroup?.internal === true &&
-          msg.data?.docActions?.length === 0) {
+      const msg = pick(JSON.parse(data), [
+        "reqId",
+        "error",
+        "errorCode",
+        "data",
+        "type",
+        "docFD",
+      ]);
+      if (
+        this._ignoreTrivialActions &&
+        msg.type === "docUserAction" &&
+        msg.data?.actionGroup?.internal === true &&
+        msg.data?.docActions?.length === 0
+      ) {
         return;
       }
       this._pending.push(msg);
       if (msg.data?.doc) {
         this._docData = new DocData(() => {
-          throw new Error('no fetches');
+          throw new Error("no fetches");
         }, msg.data.doc);
       }
-      if (this._docData && msg.type === 'docUserAction') {
+      if (this._docData && msg.type === "docUserAction") {
         const docActions = msg.data?.docActions || [];
         for (const docAction of docActions) {
           this._docData.receiveAction(docAction);
         }
       }
-      if (this._consumer) { this._consumer(); }
+      if (this._consumer) {
+        this._consumer();
+      }
     };
   }
 
@@ -80,7 +91,9 @@ export class GristClient {
   }
 
   public get docData() {
-    if (!this._docData) { throw new Error('no DocData'); }
+    if (!this._docData) {
+      throw new Error("no DocData");
+    }
     return this._docData;
   }
 
@@ -93,7 +106,7 @@ export class GristClient {
       if (this._pending.length) {
         return this._pending.shift();
       }
-      await new Promise<void>(resolve => this._consumer = resolve);
+      await new Promise<void>((resolve) => (this._consumer = resolve));
     }
   }
 
@@ -122,14 +135,15 @@ export class GristClient {
 
   public waitForServer() {
     // send an arbitrary failing message and wait for response.
-    return this.send('ping');
+    return this.send("ping");
   }
 
   // Helper to read the next docUserAction ignoring anything else (e.g. a duplicate clientConnect).
   public async readDocUserAction(): Promise<DocAction[]> {
-    while (true) {    // eslint-disable-line no-constant-condition
+    while (true) {
+      // eslint-disable-line no-constant-condition
       const msg = await this.readMessage();
-      if (msg.type === 'docUserAction') {
+      if (msg.type === "docUserAction") {
         return msg.data.docActions;
       }
     }
@@ -141,7 +155,7 @@ export class GristClient {
     const req: GristRequest = {
       reqId: this._requestId,
       method,
-      args
+      args,
     };
     this.ws.send(JSON.stringify(req));
     const result = await p;
@@ -154,24 +168,32 @@ export class GristClient {
 
   public async openDocOnConnect(docId: string) {
     const msg = await this.readMessage();
-    if (msg.type !== 'clientConnect') { throw new Error('expected clientConnect'); }
-    const openDoc = await this.send('openDoc', docId);
-    if (openDoc.error) { throw new Error('error in openDocOnConnect'); }
+    if (msg.type !== "clientConnect") {
+      throw new Error("expected clientConnect");
+    }
+    const openDoc = await this.send("openDoc", docId);
+    if (openDoc.error) {
+      throw new Error("error in openDocOnConnect");
+    }
     return openDoc;
   }
 }
 
-export async function openClient(server: FlexServer, email: string, org: string,
-                                 emailHeader?: string): Promise<GristClient> {
+export async function openClient(
+  server: FlexServer,
+  email: string,
+  org: string,
+  emailHeader?: string
+): Promise<GristClient> {
   const headers: Record<string, string> = {};
   if (!emailHeader) {
     const resp = await axios.get(`${server.getOwnUrl()}/test/session`);
-    const cookie = resp.headers['set-cookie'][0];
-    if (email !== 'anon@getgrist.com') {
-      const cid = decodeURIComponent(cookie.split('=')[1].split(';')[0]);
+    const cookie = resp.headers["set-cookie"][0];
+    if (email !== "anon@getgrist.com") {
+      const cid = decodeURIComponent(cookie.split("=")[1].split(";")[0]);
       const comm = server.getComm();
       const sessionId = comm.getSessionIdFromCookie(cid)!;
-      const scopedSession = comm.getOrCreateSession(sessionId, {org});
+      const scopedSession = comm.getOrCreateSession(sessionId, { org });
       const profile = { email, email_verified: true, name: "Someone" };
       await scopedSession.updateUserProfile({} as any, profile);
     }
@@ -179,16 +201,19 @@ export async function openClient(server: FlexServer, email: string, org: string,
   } else {
     headers[emailHeader] = email;
   }
-  const ws = new GristClientSocket('ws://localhost:' + server.getOwnPort() + `/o/${org}`, {
-    headers
-  });
+  const ws = new GristClientSocket(
+    "ws://0.0.0.0:" + server.getOwnPort() + `/o/${org}`,
+    {
+      headers,
+    }
+  );
   const client = new GristClient(ws);
-  await new Promise(function(resolve, reject) {
-    ws.onopen = function() {
+  await new Promise(function (resolve, reject) {
+    ws.onopen = function () {
       ws.onerror = null;
       resolve(ws);
     };
-    ws.onerror = function(err: Error) {
+    ws.onerror = function (err: Error) {
       ws.onopen = null;
       reject(err);
     };
